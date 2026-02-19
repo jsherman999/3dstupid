@@ -125,6 +125,21 @@
   <h1>People Swarm</h1>
   <div class="sub">Intelligence × Evil × Having a Good Time</div>
 
+  <!-- CONFIGURATIONS -->
+  <div class="sec">
+    <div class="sec-t">Configurations</div>
+    <div class="row" style="gap:3px">
+      <select id="cfgSelect" style="flex:1;font-size:10px"><option value="">— unsaved —</option></select>
+      <button id="btnCfgLoad" class="pri" title="Load selected">Load</button>
+      <button id="btnCfgDel" class="del" title="Delete selected">×</button>
+    </div>
+    <div class="row" style="gap:3px;margin-top:2px">
+      <input type="text" id="cfgName" placeholder="Config name…" style="flex:1">
+      <button id="btnCfgSave" class="pri">Save</button>
+    </div>
+    <div style="font-size:8px;color:#334;margin-top:2px">Saves people, events & drift settings</div>
+  </div>
+
   <!-- PEOPLE -->
   <div class="sec">
     <div class="sec-t">People</div>
@@ -984,6 +999,110 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(vp.clientWidth, vp.clientHeight);
 });
+
+// ═══════════════════════════════════════════════════════════
+//  CONFIGURATIONS — save/load via localStorage
+// ═══════════════════════════════════════════════════════════
+const CFG_STORAGE_KEY = 'peopleswarm_configs';
+
+function getSavedConfigs() {
+  try { return JSON.parse(localStorage.getItem(CFG_STORAGE_KEY)) || {}; }
+  catch { return {}; }
+}
+function putSavedConfigs(configs) {
+  localStorage.setItem(CFG_STORAGE_KEY, JSON.stringify(configs));
+}
+
+function snapshotState() {
+  return {
+    people: people.map(p => ({ name: p.name, intelligence: p.intelligence, evil: p.evil, goodTime: p.goodTime })),
+    events: events.map(e => ({ day: e.day, name: e.name, defaultPct: e.defaultPct, overrides: { ...e.overrides } })),
+    drift: { driftEvil: CFG.driftEvil, driftGood: CFG.driftGood, seed: CFG.seed },
+  };
+}
+
+function restoreState(snap) {
+  // Tear down current visuals
+  people.forEach(removeVisuals);
+  people.length = 0;
+  nextPid = 1; nextNameIdx = 0;
+
+  // Rebuild people
+  (snap.people || []).forEach(sp => {
+    const p = addPerson(sp.name, sp.intelligence, sp.evil, sp.goodTime);
+    if (p) createVisuals(p);
+  });
+
+  // Rebuild events
+  events.length = 0; nextEid = 1;
+  (snap.events || []).forEach(se => {
+    const e = addEvent(se.day, se.name, se.defaultPct);
+    if (se.overrides) e.overrides = { ...se.overrides };
+  });
+
+  // Restore drift
+  if (snap.drift) {
+    CFG.driftEvil = snap.drift.driftEvil ?? 0.15;
+    CFG.driftGood = snap.drift.driftGood ?? 0.20;
+    CFG.seed = snap.drift.seed ?? 42;
+    document.getElementById('driftEvil').value = CFG.driftEvil;
+    document.getElementById('vDE').textContent = CFG.driftEvil.toFixed(2);
+    document.getElementById('driftGood').value = CFG.driftGood;
+    document.getElementById('vDG').textContent = CFG.driftGood.toFixed(2);
+    document.getElementById('seed').value = CFG.seed;
+  }
+
+  currentDay = 0;
+  renderPeopleList();
+  renderEventList();
+  recomputeAll();
+}
+
+function renderCfgDropdown() {
+  const sel = document.getElementById('cfgSelect');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— unsaved —</option>';
+  const configs = getSavedConfigs();
+  Object.keys(configs).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })).forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    sel.appendChild(opt);
+  });
+  if (prev && configs[prev]) sel.value = prev;
+}
+
+document.getElementById('btnCfgSave').addEventListener('click', () => {
+  let name = document.getElementById('cfgName').value.trim();
+  if (!name) {
+    const sel = document.getElementById('cfgSelect');
+    if (sel.value) name = sel.value; // overwrite current selection
+    else { document.getElementById('cfgName').focus(); return; }
+  }
+  const configs = getSavedConfigs();
+  configs[name] = snapshotState();
+  putSavedConfigs(configs);
+  document.getElementById('cfgName').value = '';
+  renderCfgDropdown();
+  document.getElementById('cfgSelect').value = name;
+});
+
+document.getElementById('btnCfgLoad').addEventListener('click', () => {
+  const name = document.getElementById('cfgSelect').value;
+  if (!name) return;
+  const configs = getSavedConfigs();
+  if (configs[name]) restoreState(configs[name]);
+});
+
+document.getElementById('btnCfgDel').addEventListener('click', () => {
+  const name = document.getElementById('cfgSelect').value;
+  if (!name) return;
+  const configs = getSavedConfigs();
+  delete configs[name];
+  putSavedConfigs(configs);
+  renderCfgDropdown();
+});
+
+renderCfgDropdown();
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
