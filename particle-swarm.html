@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>People Swarm — 3D Attribute Explorer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #08080e; color: #ddd; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; display: flex; height: 100vh; }
+
+  #controls { width: 320px; background: #0e0e18; padding: 12px; overflow-y: auto; border-right: 1px solid #222238;
+    scrollbar-width: thin; scrollbar-color: #2a2a3a #0e0e18; flex-shrink: 0; }
+  #controls::-webkit-scrollbar { width: 5px; }
+  #controls::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 3px; }
+
+  .sec { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #1a1a2a; }
+  .sec:last-child { border-bottom: none; }
+  .sec-t { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: #556; margin-bottom: 7px; font-weight: 700; }
+  .row { display: flex; align-items: center; margin-bottom: 5px; gap: 4px; }
+  .row label { font-size: 11px; color: #99a; flex: 1; }
+  .row input[type="range"] { width: 100px; accent-color: #5577cc; }
+  .row .v { font-size: 10px; color: #667; min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+  input[type="number"] { width: 44px; background: #161626; border: 1px solid #252540; color: #bbc; padding: 2px 4px; border-radius: 3px; font-size: 11px; text-align: right; }
+  input[type="text"] { background: #161626; border: 1px solid #252540; color: #bbc; padding: 2px 4px; border-radius: 3px; font-size: 11px; }
+  select { background: #161626; border: 1px solid #252540; color: #bbc; padding: 2px 4px; border-radius: 3px; font-size: 11px; }
+  button { background: #181830; color: #aab; border: 1px solid #282848; padding: 4px 9px; cursor: pointer; border-radius: 4px; font-size: 10px; transition: background 0.15s; }
+  button:hover { background: #242444; }
+  button.pri { background: #2e4499; border-color: #3a55aa; color: #ddf; }
+  button.pri:hover { background: #3a55bb; }
+  button.del { border-color: #442222; color: #a88; }
+  button.del:hover { background: #331818; }
+  .chk { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; font-size: 11px; }
+  .chk input { accent-color: #5577cc; }
+  h1 { font-size: 14px; font-weight: 600; margin-bottom: 2px; color: #bbd; }
+  .sub { font-size: 10px; color: #445; margin-bottom: 12px; }
+
+  /* ── People table ──────────────────────────── */
+  .p-header { display: grid; grid-template-columns: 14px 1fr 38px 38px 38px 18px; gap: 3px; padding: 0 4px 3px; font-size: 8.5px; color: #445; text-transform: uppercase; letter-spacing: 0.5px; }
+  #peopleList { max-height: 250px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2a2a3a #0e0e18; }
+  .p-row { display: grid; grid-template-columns: 14px 1fr 38px 38px 38px 18px; gap: 3px; align-items: center; padding: 3px 4px; background: #121220; border-radius: 3px; margin-bottom: 2px; }
+  .p-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .p-name { font-size: 10.5px; color: #aab; cursor: text; padding: 1px 2px; border-radius: 2px; border: 1px solid transparent;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .p-name:hover { border-color: #333; }
+  .p-name:focus { outline: none; border-color: #4466aa; background: #161626; }
+  .p-row input[type="number"] { width: 100%; padding: 1px 2px; font-size: 10px; }
+  .p-row input.readonly { color: #667; background: #111120; }
+  .p-row button { padding: 0 4px; font-size: 8px; line-height: 1.3; }
+
+  /* ── Events ────────────────────────────────── */
+  .evt-item { background: #121220; border-radius: 3px; margin-bottom: 4px; overflow: hidden; }
+  .evt-head { display: flex; align-items: center; gap: 5px; padding: 5px 6px; cursor: pointer; font-size: 10.5px; }
+  .evt-head:hover { background: #181830; }
+  .evt-chevron { font-size: 8px; color: #556; transition: transform 0.15s; width: 10px; }
+  .evt-chevron.open { transform: rotate(90deg); }
+  .evt-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .evt-info { flex: 1; color: #99a; }
+  .evt-day { color: #556; font-size: 9px; }
+  .evt-body { display: none; padding: 4px 8px 8px; border-top: 1px solid #1a1a2a; }
+  .evt-body.open { display: block; }
+  .evt-body .row { margin-bottom: 4px; }
+  .ep-list { max-height: 160px; overflow-y: auto; scrollbar-width: thin; }
+  .ep-row { display: flex; align-items: center; gap: 4px; padding: 2px 0; font-size: 10px; }
+  .ep-row .ep-name { flex: 1; color: #889; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ep-row input { width: 44px; }
+  .ep-row .custom { color: #cc8844; }
+  .ep-row button { padding: 0 3px; font-size: 8px; }
+
+  /* ── Main area (viewport + timeline) ───────── */
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #viewport { flex: 1; position: relative; cursor: grab; min-height: 0; }
+  #viewport:active { cursor: grabbing; }
+  canvas { display: block; }
+  #info { position: absolute; top: 8px; right: 10px; font-size: 10px; color: #334; text-align: right; line-height: 1.5; pointer-events: none; }
+  .name-lbl { position: absolute; font-size: 10px; pointer-events: none; white-space: nowrap;
+    text-shadow: 0 0 5px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9); transform: translate(-50%, -100%); padding-bottom: 3px; }
+  .axis-lbl { position: absolute; font-size: 11px; pointer-events: none; white-space: nowrap;
+    text-shadow: 0 0 6px rgba(0,0,0,0.9); font-weight: 600; }
+
+  /* ── Bottom Timeline ───────────────────────── */
+  #timelinePanel {
+    background: #0c0c18; border-top: 1px solid #1e1e36; padding: 10px 18px 14px;
+    flex-shrink: 0; user-select: none;
+  }
+  .tl-top-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .tl-day-display { font-size: 22px; font-weight: 700; color: #cce; font-variant-numeric: tabular-nums; min-width: 120px; }
+  .tl-date-display { font-size: 12px; color: #667; }
+  .tl-nav-btns { display: flex; gap: 3px; margin-left: auto; }
+  .tl-nav-btns button { padding: 5px 10px; font-size: 13px; font-weight: 600; }
+  .tl-play-btn { padding: 5px 14px !important; font-size: 13px !important; }
+  .tl-speed { display: flex; align-items: center; gap: 4px; }
+  .tl-speed label { font-size: 10px; color: #556; }
+  .tl-speed input { width: 70px; accent-color: #5577cc; }
+  .tl-speed .v { font-size: 10px; color: #556; }
+
+  /* Scrubber track */
+  .tl-track-wrap { position: relative; margin: 0 0 2px; }
+  .tl-month-labels { display: flex; position: relative; height: 16px; margin-bottom: 2px; }
+  .tl-month-lbl { position: absolute; font-size: 10px; color: #556; transform: translateX(-50%); font-weight: 500; }
+  .tl-month-tick { position: absolute; top: 14px; width: 1px; height: 6px; background: #2a2a40; transform: translateX(-50%); }
+  .tl-track {
+    position: relative; height: 36px; background: #111122; border-radius: 6px;
+    cursor: pointer; overflow: hidden; border: 1px solid #1e1e36;
+  }
+  .tl-track:hover { border-color: #2a2a50; }
+  .tl-cursor-line { position: absolute; top: 0; width: 3px; height: 100%; background: #5588dd; border-radius: 2px; pointer-events: none; z-index: 3;
+    box-shadow: 0 0 8px rgba(85,136,221,0.5); }
+  .tl-cursor-handle { position: absolute; top: -4px; width: 13px; height: calc(100% + 8px); background: #6699ee;
+    border-radius: 4px; pointer-events: none; z-index: 4; transform: translateX(-5px);
+    box-shadow: 0 0 10px rgba(85,136,221,0.4); }
+  .tl-evt-marker { position: absolute; top: 0; width: 3px; height: 100%; background: #ee3344; z-index: 1;
+    border-radius: 1px; opacity: 0.8; }
+  .tl-evt-marker:hover { opacity: 1; }
+  .tl-evt-label { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    background: #221118; color: #ee6677; font-size: 8px; padding: 1px 4px; border-radius: 2px;
+    white-space: nowrap; pointer-events: none; display: none; }
+  .tl-evt-marker:hover .tl-evt-label { display: block; }
+  .tl-day-ticks { position: relative; height: 8px; margin-top: 1px; }
+  .tl-day-num { position: absolute; font-size: 8px; color: #334; transform: translateX(-50%); top: 0; }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <h1>People Swarm</h1>
+  <div class="sub">Intelligence × Evil × Having a Good Time</div>
+
+  <!-- PEOPLE -->
+  <div class="sec">
+    <div class="sec-t">People</div>
+    <div class="row"><label>Globe Size</label><input type="range" id="globeSize" min="0.3" max="3" value="1.0" step="0.1"><span class="v" id="vGlobe">1.0</span></div>
+    <div class="p-header"><span></span><span>Name</span><span>Int</span><span>Evil</span><span>Good</span><span></span></div>
+    <div id="peopleList"></div>
+    <div style="display:flex;gap:4px;margin-top:5px">
+      <button id="btnAddP" style="flex:1">+ Person</button>
+      <button id="btnAdd5" style="flex:1">+ 5</button>
+    </div>
+    <div style="font-size:9px;color:#445;margin-top:2px" id="pCount">20 / 50</div>
+  </div>
+
+  <!-- EVENTS -->
+  <div class="sec">
+    <div class="sec-t">Events <span style="font-size:8px;color:#445;font-weight:400">(±% Good Time)</span></div>
+    <button id="btnAddEvt" class="pri" style="width:100%;margin-bottom:6px">+ Add Event at Current Day</button>
+    <div id="eventList"></div>
+    <div style="font-size:9px;color:#445;margin-top:2px" id="eCount">0 events</div>
+  </div>
+
+  <!-- DRIFT -->
+  <div class="sec">
+    <div class="sec-t">Drift</div>
+    <div class="row"><label>Evil drift</label><input type="range" id="driftEvil" min="0" max="1" value="0.15" step="0.01"><span class="v" id="vDE">0.15</span></div>
+    <div class="row"><label>Good Time drift</label><input type="range" id="driftGood" min="0" max="1" value="0.20" step="0.01"><span class="v" id="vDG">0.20</span></div>
+    <div class="row"><label>Seed</label><input type="number" id="seed" value="42" min="0" max="99999"></div>
+    <button id="btnRegen" class="pri" style="width:100%;margin-top:6px">Regenerate</button>
+  </div>
+
+  <!-- DISPLAY -->
+  <div class="sec">
+    <div class="sec-t">Display</div>
+    <div class="chk"><input type="checkbox" id="showLabels" checked><label for="showLabels">Name Labels</label></div>
+    <div class="chk"><input type="checkbox" id="showTrails" checked><label for="showTrails">Trails (30 days)</label></div>
+    <div class="chk"><input type="checkbox" id="showDropLines" checked><label for="showDropLines">Drop Lines to Floor</label></div>
+    <div class="chk"><input type="checkbox" id="showAxes" checked><label for="showAxes">Axes</label></div>
+    <div class="chk"><input type="checkbox" id="showGrid" checked><label for="showGrid">Grid</label></div>
+    <div class="row"><label>Background</label>
+      <select id="bgColor">
+        <option value="0x08080e">Deep Space</option>
+        <option value="0x0c1020">Midnight Blue</option>
+        <option value="0x181818">Charcoal</option>
+        <option value="0x000000">Pure Black</option>
+      </select>
+    </div>
+    <div class="row"><label>Axes</label>
+      <input type="text" id="axX" value="Intelligence" style="width:75px">
+      <input type="text" id="axY" value="Evil" style="width:50px">
+      <input type="text" id="axZ" value="Good Time" style="width:65px">
+    </div>
+    <button id="btnShot" style="width:100%;margin-top:6px">📷 Screenshot</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="viewport"><div id="info"></div></div>
+  <div id="timelinePanel">
+    <div class="tl-top-row">
+      <div>
+        <div class="tl-day-display" id="tlDayBig">Day 0</div>
+        <div class="tl-date-display" id="tlDateSub">Jan 1</div>
+      </div>
+      <div class="tl-nav-btns">
+        <button id="bk30" title="-30 days">◄◄</button>
+        <button id="bk1" class="pri" title="-1 day">◄</button>
+        <button id="btnPlay" class="tl-play-btn pri">▶ Play</button>
+        <button id="fw1" class="pri" title="+1 day">►</button>
+        <button id="fw30" title="+30 days">►►</button>
+      </div>
+      <div class="tl-speed">
+        <label>Speed</label>
+        <input type="range" id="speed" min="0.05" max="3" value="0.3" step="0.05">
+        <span class="v" id="vSpeed">0.3</span>
+      </div>
+    </div>
+    <div class="tl-track-wrap">
+      <div class="tl-month-labels" id="tlMonthLabels"></div>
+      <div class="tl-track" id="tlTrack">
+        <div class="tl-cursor-handle" id="tlHandle"></div>
+      </div>
+      <div class="tl-day-ticks" id="tlDayTicks"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+//  PRNG
+// ═══════════════════════════════════════════════════════════
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gauss(rng) {
+  return Math.sqrt(-2 * Math.log(rng() + 1e-10)) * Math.cos(2 * Math.PI * rng());
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════
+const CFG = {
+  totalDays: 365, driftEvil: 0.15, driftGood: 0.20,
+  globeSize: 1.0, speed: 0.3, seed: 42, trailDays: 30, scale: 0.5,
+};
+
+// Month data for 365-day year
+const MONTHS = [
+  { name: 'Jan', days: 31 }, { name: 'Feb', days: 28 }, { name: 'Mar', days: 31 },
+  { name: 'Apr', days: 30 }, { name: 'May', days: 31 }, { name: 'Jun', days: 30 },
+  { name: 'Jul', days: 31 }, { name: 'Aug', days: 31 }, { name: 'Sep', days: 30 },
+  { name: 'Oct', days: 31 }, { name: 'Nov', days: 30 }, { name: 'Dec', days: 31 },
+];
+// Cumulative day offsets for each month
+const MONTH_STARTS = [];
+{ let d = 0; MONTHS.forEach(m => { MONTH_STARTS.push(d); d += m.days; }); }
+
+function dayToDateStr(d) {
+  d = Math.max(0, Math.min(364, Math.floor(d)));
+  for (let m = 11; m >= 0; m--) {
+    if (d >= MONTH_STARTS[m]) return MONTHS[m].name + ' ' + (d - MONTH_STARTS[m] + 1);
+  }
+  return 'Jan 1';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PEOPLE DATA
+// ═══════════════════════════════════════════════════════════
+const NAMES = [
+  'Alice','Bob','Charlie','Diana','Eve','Frank','Grace','Henry',
+  'Iris','Jack','Kate','Leo','Maya','Nick','Olive','Pete',
+  'Quinn','Rosa','Sam','Tara','Uma','Victor','Wendy','Xander',
+  'Yuki','Zane','Aria','Blake','Cleo','Dante','Elara','Finn',
+  'Gaia','Hugo','Isla','Jules','Kira','Liam','Mira','Nero',
+  'Opal','Pike','Remy','Sky','Thea','Uri','Vale','Wren','Zora','Axel'
+];
+
+function personHue(i) { return (i * 0.618033988749895 + 0.1) % 1; }
+function hashVal(i, shift) { return ((((i + 7) * 2654435761) >>> shift) & 0xffff) / 65536; }
+
+let people = [], nextPid = 1, nextNameIdx = 0;
+
+function addPerson(name, int_, evil_, good_) {
+  if (people.length >= 50) return null;
+  const idx = people.length;
+  const n = name || NAMES[nextNameIdx % NAMES.length];
+  nextNameIdx++;
+  const hue = personHue(idx);
+  const color = new THREE.Color().setHSL(hue, 0.65, 0.6);
+  const p = {
+    id: nextPid++, name: n, color, hex: color.getHex(),
+    intelligence: int_ ?? Math.round(30 + hashVal(idx, 0) * 60),
+    evil: evil_ ?? Math.round(5 + hashVal(idx, 8) * 50),
+    goodTime: good_ ?? Math.round(45 + hashVal(idx, 16) * 50),
+    mesh: null, label: null, trail: null, dropLine: null,
+  };
+  people.push(p);
+  return p;
+}
+for (let i = 0; i < 20; i++) addPerson();
+
+// ═══════════════════════════════════════════════════════════
+//  EVENTS DATA  — now supports signed pct (-100 to +100)
+// ═══════════════════════════════════════════════════════════
+const EVT_COLORS = [0xff5566, 0xff8844, 0xddaa33, 0xcc55aa, 0x55aadd, 0x88cc55];
+let events = []; // { id, day, name, defaultPct, overrides: {pid: pct}, color }
+let nextEid = 1;
+
+function addEvent(day, name, pct) {
+  const e = { id: nextEid++, day, name: name || `Event ${events.length + 1}`,
+    defaultPct: pct ?? -25, overrides: {}, color: EVT_COLORS[events.length % EVT_COLORS.length] };
+  events.push(e);
+  events.sort((a, b) => a.day - b.day);
+  return e;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let timeline = null; // Float32Array [days * N * 3]
+let currentDay = 0, playing = false;
+
+// ═══════════════════════════════════════════════════════════
+//  THREE.JS SCENE
+// ═══════════════════════════════════════════════════════════
+const vp = document.getElementById('viewport');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x08080e);
+scene.fog = new THREE.FogExp2(0x08080e, 0.0012);
+
+const camera = new THREE.PerspectiveCamera(50, vp.clientWidth / vp.clientHeight, 0.5, 600);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(vp.clientWidth, vp.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+vp.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0x334466, 0.5));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+dirLight.position.set(60, 90, 50);
+scene.add(dirLight);
+scene.add(new THREE.HemisphereLight(0x8888cc, 0x332211, 0.35));
+
+// ═══════════════════════════════════════════════════════════
+//  CAMERA ORBIT
+// ═══════════════════════════════════════════════════════════
+const CENTER = new THREE.Vector3(25, 12, 25);
+let orb = { theta: 0.5, phi: 1.0, radius: 100, target: CENTER.clone() };
+let dragging = false, rDrag = false, pm = { x: 0, y: 0 };
+renderer.domElement.addEventListener('mousedown', e => { dragging = true; rDrag = e.button === 2; pm = { x: e.clientX, y: e.clientY }; });
+window.addEventListener('mouseup', () => dragging = false);
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - pm.x, dy = e.clientY - pm.y;
+  if (rDrag) {
+    const r = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    const u = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+    orb.target.add(r.multiplyScalar(-dx * 0.1));
+    orb.target.add(u.multiplyScalar(dy * 0.1));
+  } else {
+    orb.theta -= dx * 0.005;
+    orb.phi = Math.max(0.12, Math.min(Math.PI - 0.12, orb.phi - dy * 0.005));
+  }
+  pm = { x: e.clientX, y: e.clientY };
+});
+renderer.domElement.addEventListener('wheel', e => {
+  e.preventDefault();
+  orb.radius = Math.max(25, Math.min(350, orb.radius * (e.deltaY > 0 ? 1.07 : 0.93)));
+}, { passive: false });
+function camUpdate() {
+  camera.position.set(
+    orb.target.x + orb.radius * Math.sin(orb.phi) * Math.cos(orb.theta),
+    orb.target.y + orb.radius * Math.cos(orb.phi),
+    orb.target.z + orb.radius * Math.sin(orb.phi) * Math.sin(orb.theta)
+  );
+  camera.lookAt(orb.target);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AXES & GRID  — Grid at Z=0 (Good Time = 0 plane)
+// ═══════════════════════════════════════════════════════════
+const axisGrp = new THREE.Group();
+const grid = new THREE.GridHelper(60, 12, 0x1a1a30, 0x111122);
+grid.position.set(25, 0, 25);
+scene.add(grid); scene.add(axisGrp);
+
+function buildAxes() {
+  while (axisGrp.children.length) axisGrp.remove(axisGrp.children[0]);
+  const S = CFG.scale, L = 100 * S;
+  [[L,0,0,0xff4444],[0,L,0,0x4488ff],[0,0,L,0x44ee44]].forEach(([x,y,z,c]) => {
+    const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(x,y,z)]);
+    axisGrp.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: c, transparent: true, opacity: 0.5 })));
+  });
+  [[1,0,0,0xff4444],[0,1,0,0x4488ff],[0,0,1,0x44ee44]].forEach(([ax,ay,az,c]) => {
+    for (let v = 10; v <= 100; v += 10) {
+      const p = v * S;
+      const sz = v % 50 === 0 ? 0.8 : 0.4;
+      const pts = [
+        new THREE.Vector3(ax*p - sz*(1-ax), ay*p - sz*(1-ay), az*p - sz*(1-az)),
+        new THREE.Vector3(ax*p + sz*(1-ax), ay*p + sz*(1-ay), az*p + sz*(1-az))
+      ];
+      axisGrp.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color: c, transparent: true, opacity: v % 50 === 0 ? 0.4 : 0.2 })
+      ));
+    }
+  });
+}
+buildAxes();
+
+// ═══════════════════════════════════════════════════════════
+//  PEOPLE VISUALS (including drop lines)
+// ═══════════════════════════════════════════════════════════
+const sphereGeo = new THREE.SphereGeometry(1, 24, 24);
+
+function createVisuals(p) {
+  const mat = new THREE.MeshPhongMaterial({
+    color: p.hex, emissive: p.hex, emissiveIntensity: 0.12,
+    specular: 0x888888, shininess: 70, transparent: true, opacity: 0.92,
+  });
+  p.mesh = new THREE.Mesh(sphereGeo, mat);
+  p.mesh.scale.setScalar(CFG.globeSize);
+  scene.add(p.mesh);
+
+  const el = document.createElement('div');
+  el.className = 'name-lbl';
+  el.textContent = p.name;
+  el.style.color = '#' + p.color.getHexString();
+  vp.appendChild(el);
+  p.label = el;
+
+  const tg = new THREE.BufferGeometry();
+  tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(CFG.trailDays * 3), 3));
+  p.trail = new THREE.Line(tg, new THREE.LineBasicMaterial({ color: p.hex, transparent: true, opacity: 0.2 }));
+  scene.add(p.trail);
+
+  // Drop line: from particle down to Z=0 (Good Time = 0) plane
+  const dlGeo = new THREE.BufferGeometry();
+  dlGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  p.dropLine = new THREE.Line(dlGeo, new THREE.LineBasicMaterial({
+    color: p.hex, transparent: true, opacity: 0.25,
+    depthTest: true,
+  }));
+  scene.add(p.dropLine);
+}
+function removeVisuals(p) {
+  if (p.mesh) scene.remove(p.mesh);
+  if (p.label) p.label.remove();
+  if (p.trail) scene.remove(p.trail);
+  if (p.dropLine) scene.remove(p.dropLine);
+}
+function rebuildVisuals() {
+  people.forEach(removeVisuals);
+  people.forEach(createVisuals);
+}
+rebuildVisuals();
+
+// ═══════════════════════════════════════════════════════════
+//  COMPUTE TIMELINE  — events now use signed pct
+// ═══════════════════════════════════════════════════════════
+function compute() {
+  const N = people.length, D = CFG.totalDays + 1;
+  timeline = new Float32Array(D * N * 3);
+  const rng = mulberry32(CFG.seed);
+  const S = CFG.scale;
+
+  for (let i = 0; i < N; i++) {
+    const p = people[i];
+    timeline[i * 3]     = p.intelligence * S;
+    timeline[i * 3 + 1] = p.evil * S;
+    timeline[i * 3 + 2] = p.goodTime * S;
+  }
+
+  const evtMap = {};
+  events.forEach(e => {
+    if (!evtMap[e.day]) evtMap[e.day] = [];
+    evtMap[e.day].push(e);
+  });
+
+  for (let d = 1; d < D; d++) {
+    const prevBase = (d - 1) * N * 3;
+    const curBase = d * N * 3;
+
+    for (let i = 0; i < N; i++) {
+      const p = people[i];
+      const pi3 = prevBase + i * 3;
+      const ci3 = curBase + i * 3;
+
+      // Intelligence: constant
+      timeline[ci3] = p.intelligence * S;
+
+      // Evil: drift
+      let evil = timeline[pi3 + 1] / S + gauss(rng) * CFG.driftEvil;
+      evil = Math.max(0, Math.min(100, evil));
+      timeline[ci3 + 1] = evil * S;
+
+      // Good Time: drift
+      let good = timeline[pi3 + 2] / S + gauss(rng) * CFG.driftGood;
+      good = Math.max(0, Math.min(100, good));
+
+      // Apply events: signed pct. Negative = reduce, positive = boost
+      if (evtMap[d]) {
+        for (const e of evtMap[d]) {
+          const pct = e.overrides[p.id] !== undefined ? e.overrides[p.id] : e.defaultPct;
+          // pct is signed: -25 means reduce by 25%, +25 means increase by 25%
+          good = good * (1 + pct / 100);
+          good = Math.max(0, Math.min(100, good));
+        }
+      }
+      timeline[ci3 + 2] = good * S;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER FRAME
+// ═══════════════════════════════════════════════════════════
+const _v = new THREE.Vector3();
+
+function renderDay(d) {
+  d = Math.max(0, Math.min(CFG.totalDays, Math.floor(d)));
+  const N = people.length, W = vp.clientWidth, H = vp.clientHeight;
+  const showLbl = document.getElementById('showLabels').checked;
+  const showTrl = document.getElementById('showTrails').checked;
+  const showDrop = document.getElementById('showDropLines').checked;
+
+  for (let i = 0; i < N; i++) {
+    const p = people[i];
+    if (!p.mesh) continue;
+    const base = (d * N + i) * 3;
+    const x = timeline[base], y = timeline[base + 1], z = timeline[base + 2];
+
+    p.mesh.position.set(x, z, y); // Map: X=Intelligence, Z(3d)=Evil, Y(3d)=GoodTime (up)
+    p.mesh.scale.setScalar(CFG.globeSize);
+
+    // Drop line from particle to floor (Y=0 in 3D = Good Time = 0)
+    if (p.dropLine) {
+      p.dropLine.visible = showDrop;
+      if (showDrop) {
+        const dp = p.dropLine.geometry.attributes.position.array;
+        dp[0] = x; dp[1] = z; dp[2] = y; // particle position
+        dp[3] = x; dp[4] = 0; dp[5] = y; // floor position (Good Time = 0)
+        p.dropLine.geometry.attributes.position.needsUpdate = true;
+      }
+    }
+
+    if (p.label) {
+      if (showLbl) {
+        _v.set(x, z + CFG.globeSize * 1.4, y).project(camera);
+        if (_v.z < 1) {
+          p.label.style.left = ((_v.x * 0.5 + 0.5) * W) + 'px';
+          p.label.style.top = ((-_v.y * 0.5 + 0.5) * H) + 'px';
+          p.label.style.display = 'block';
+          const depth = Math.max(0, Math.min(1, (_v.z - 0.96) / 0.04));
+          p.label.style.opacity = 1 - depth * 0.85;
+        } else p.label.style.display = 'none';
+      } else p.label.style.display = 'none';
+    }
+
+    if (p.trail) {
+      p.trail.visible = showTrl;
+      if (showTrl) {
+        const tp = p.trail.geometry.attributes.position.array;
+        for (let t = 0; t < CFG.trailDays; t++) {
+          const td = Math.max(0, d - CFG.trailDays + t);
+          const ti = (td * N + i) * 3;
+          tp[t*3] = timeline[ti]; tp[t*3+1] = timeline[ti+2]; tp[t*3+2] = timeline[ti+1];
+        }
+        p.trail.geometry.attributes.position.needsUpdate = true;
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AXIS LABELS
+// ═══════════════════════════════════════════════════════════
+const axLabels = [];
+function initAxisLabels() {
+  document.querySelectorAll('.axis-lbl').forEach(e => e.remove());
+  axLabels.length = 0;
+  const S = CFG.scale;
+  [{ id:'axX', pos:[105*S,0,0], c:'#ff6666' },
+   { id:'axZ', pos:[0,105*S,0], c:'#6699ff' },
+   { id:'axY', pos:[0,0,105*S], c:'#66ee66' }].forEach(cfg => {
+    const el = document.createElement('div');
+    el.className = 'axis-lbl'; el.style.color = cfg.c;
+    vp.appendChild(el);
+    axLabels.push({ el, pos: new THREE.Vector3(...cfg.pos), id: cfg.id });
+    document.getElementById(cfg.id).addEventListener('input', () =>
+      axLabels.forEach(l => l.el.textContent = document.getElementById(l.id).value || ''));
+  });
+  axLabels.forEach(l => l.el.textContent = document.getElementById(l.id).value || '');
+}
+function projectAxisLabels() {
+  const W = vp.clientWidth, H = vp.clientHeight;
+  axLabels.forEach(l => {
+    const v = l.pos.clone().project(camera);
+    if (v.z < 1) { l.el.style.left = (v.x*0.5+0.5)*W+'px'; l.el.style.top = (-v.y*0.5+0.5)*H+'px'; l.el.style.display = 'block'; }
+    else l.el.style.display = 'none';
+  });
+}
+initAxisLabels();
+
+// ═══════════════════════════════════════════════════════════
+//  TIMELINE DISPLAY
+// ═══════════════════════════════════════════════════════════
+function updateDayDisplay() {
+  const d = Math.floor(currentDay);
+  document.getElementById('tlDayBig').textContent = `Day ${d}`;
+  document.getElementById('tlDateSub').textContent = dayToDateStr(d);
+  // Timeline cursor
+  const pct = d / CFG.totalDays * 100;
+  document.getElementById('tlHandle').style.left = `calc(${pct}% - 1px)`;
+  // Info
+  document.getElementById('info').innerHTML = `${people.length} people · ${events.length} events<br>Day ${d} / ${CFG.totalDays} · ${dayToDateStr(d)}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TIMELINE TRACK — month labels, event markers
+// ═══════════════════════════════════════════════════════════
+function buildTimelineTrack() {
+  // Month labels
+  const mlDiv = document.getElementById('tlMonthLabels');
+  mlDiv.innerHTML = '';
+  MONTHS.forEach((m, i) => {
+    const mid = MONTH_STARTS[i] + m.days / 2;
+    const pct = mid / 365 * 100;
+    const lbl = document.createElement('div');
+    lbl.className = 'tl-month-lbl';
+    lbl.style.left = pct + '%';
+    lbl.textContent = m.name;
+    mlDiv.appendChild(lbl);
+
+    // Month separator tick
+    if (i > 0) {
+      const tick = document.createElement('div');
+      tick.className = 'tl-month-tick';
+      tick.style.left = (MONTH_STARTS[i] / 365 * 100) + '%';
+      mlDiv.appendChild(tick);
+    }
+  });
+
+  // Day number ticks (every 50 days + start/end)
+  const dtDiv = document.getElementById('tlDayTicks');
+  dtDiv.innerHTML = '';
+  for (let d = 0; d <= 365; d += 50) {
+    const dn = document.createElement('div');
+    dn.className = 'tl-day-num';
+    dn.style.left = (d / 365 * 100) + '%';
+    dn.textContent = d;
+    dtDiv.appendChild(dn);
+  }
+
+  renderTimelineEvents();
+}
+
+function renderTimelineEvents() {
+  const track = document.getElementById('tlTrack');
+  track.querySelectorAll('.tl-evt-marker').forEach(e => e.remove());
+  events.forEach(e => {
+    const mk = document.createElement('div');
+    mk.className = 'tl-evt-marker';
+    mk.style.left = (e.day / CFG.totalDays * 100) + '%';
+    const lbl = document.createElement('div');
+    lbl.className = 'tl-evt-label';
+    lbl.textContent = `${e.name} (${dayToDateStr(e.day)})`;
+    mk.appendChild(lbl);
+    track.appendChild(mk);
+  });
+}
+
+// Timeline scrubbing
+let tlDragging = false;
+function tlScrub(e) {
+  const track = document.getElementById('tlTrack');
+  const rect = track.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  currentDay = Math.round(pct * CFG.totalDays);
+  currentDay = Math.max(0, Math.min(CFG.totalDays, currentDay));
+}
+document.getElementById('tlTrack').addEventListener('mousedown', e => {
+  tlDragging = true; tlScrub(e); playing = false; updPlayBtn();
+});
+window.addEventListener('mousemove', e => { if (tlDragging) tlScrub(e); });
+window.addEventListener('mouseup', () => tlDragging = false);
+
+buildTimelineTrack();
+
+// ═══════════════════════════════════════════════════════════
+//  ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════
+function animate() {
+  requestAnimationFrame(animate);
+  if (playing && timeline) {
+    currentDay += CFG.speed;
+    if (currentDay > CFG.totalDays) { currentDay = CFG.totalDays; playing = false; updPlayBtn(); }
+  }
+  if (timeline) { renderDay(currentDay); updateDayDisplay(); }
+  camUpdate();
+  projectAxisLabels();
+  renderer.render(scene, camera);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════════════════
+function updPlayBtn() { document.getElementById('btnPlay').textContent = playing ? '⏸ Pause' : '▶ Play'; }
+
+document.getElementById('bk30').addEventListener('click', () => { currentDay = Math.max(0, currentDay - 30); });
+document.getElementById('bk1').addEventListener('click', () => { currentDay = Math.max(0, currentDay - 1); });
+document.getElementById('fw1').addEventListener('click', () => { currentDay = Math.min(CFG.totalDays, currentDay + 1); });
+document.getElementById('fw30').addEventListener('click', () => { currentDay = Math.min(CFG.totalDays, currentDay + 30); });
+document.getElementById('btnPlay').addEventListener('click', () => {
+  if (currentDay >= CFG.totalDays) currentDay = 0;
+  playing = !playing; updPlayBtn();
+});
+
+document.getElementById('speed').addEventListener('input', e => {
+  CFG.speed = parseFloat(e.target.value);
+  document.getElementById('vSpeed').textContent = CFG.speed.toFixed(2);
+});
+
+// Globe size
+document.getElementById('globeSize').addEventListener('input', e => {
+  CFG.globeSize = parseFloat(e.target.value);
+  document.getElementById('vGlobe').textContent = CFG.globeSize.toFixed(1);
+});
+
+// Drift
+document.getElementById('driftEvil').addEventListener('input', e => {
+  CFG.driftEvil = parseFloat(e.target.value);
+  document.getElementById('vDE').textContent = CFG.driftEvil.toFixed(2);
+});
+document.getElementById('driftGood').addEventListener('input', e => {
+  CFG.driftGood = parseFloat(e.target.value);
+  document.getElementById('vDG').textContent = CFG.driftGood.toFixed(2);
+});
+document.getElementById('seed').addEventListener('change', e => {
+  CFG.seed = parseInt(e.target.value) || 0;
+});
+document.getElementById('btnRegen').addEventListener('click', () => recomputeAll());
+
+// Screenshot
+document.getElementById('btnShot').addEventListener('click', () => {
+  renderer.render(scene, camera);
+  const a = document.createElement('a');
+  a.download = `people-swarm-day${Math.floor(currentDay)}.png`;
+  a.href = renderer.domElement.toDataURL('image/png');
+  a.click();
+});
+
+// Display
+document.getElementById('showAxes').addEventListener('change', e => axisGrp.visible = e.target.checked);
+document.getElementById('showGrid').addEventListener('change', e => grid.visible = e.target.checked);
+document.getElementById('bgColor').addEventListener('change', e => {
+  const c = parseInt(e.target.value);
+  scene.background = new THREE.Color(c);
+  scene.fog = new THREE.FogExp2(c, 0.0012);
+});
+
+// ═══════════════════════════════════════════════════════════
+//  PEOPLE LIST UI
+// ═══════════════════════════════════════════════════════════
+function renderPeopleList() {
+  const list = document.getElementById('peopleList');
+  list.innerHTML = '';
+  people.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'p-row';
+
+    const dot = document.createElement('div');
+    dot.className = 'p-dot';
+    dot.style.background = '#' + p.color.getHexString();
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'p-name';
+    nameEl.contentEditable = true; nameEl.spellcheck = false;
+    nameEl.textContent = p.name;
+    nameEl.addEventListener('blur', () => {
+      p.name = nameEl.textContent.trim() || 'Unnamed';
+      nameEl.textContent = p.name;
+      if (p.label) p.label.textContent = p.name;
+    });
+    nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); } });
+
+    const mkInput = (val, key, readonly) => {
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.min = 0; inp.max = 100; inp.value = Math.round(val);
+      if (readonly) inp.className = 'readonly';
+      if (readonly) inp.readOnly = true;
+      inp.addEventListener('change', () => {
+        p[key] = Math.max(0, Math.min(100, parseInt(inp.value) || 0));
+        inp.value = p[key];
+        recomputeAll();
+      });
+      return inp;
+    };
+
+    const btn = document.createElement('button');
+    btn.className = 'del'; btn.textContent = '×';
+    btn.addEventListener('click', () => {
+      removeVisuals(p);
+      people.splice(i, 1);
+      renderPeopleList();
+      recomputeAll();
+    });
+
+    div.append(dot, nameEl, mkInput(p.intelligence, 'intelligence', true),
+      mkInput(p.evil, 'evil', false), mkInput(p.goodTime, 'goodTime', false), btn);
+    list.appendChild(div);
+  });
+  document.getElementById('pCount').textContent = `${people.length} / 50`;
+}
+renderPeopleList();
+
+document.getElementById('btnAddP').addEventListener('click', () => {
+  const p = addPerson();
+  if (p) { createVisuals(p); renderPeopleList(); recomputeAll(); }
+});
+document.getElementById('btnAdd5').addEventListener('click', () => {
+  for (let i = 0; i < 5; i++) { const p = addPerson(); if (p) createVisuals(p); }
+  renderPeopleList(); recomputeAll();
+});
+
+// ═══════════════════════════════════════════════════════════
+//  EVENTS UI — signed pct (-100 to +100)
+// ═══════════════════════════════════════════════════════════
+let expandedEvt = null;
+
+function fmtPct(v) {
+  return (v >= 0 ? '+' : '') + v + '%';
+}
+
+function renderEventList() {
+  const list = document.getElementById('eventList');
+  list.innerHTML = '';
+
+  events.forEach((e, idx) => {
+    const item = document.createElement('div');
+    item.className = 'evt-item';
+
+    const head = document.createElement('div');
+    head.className = 'evt-head';
+    const chev = document.createElement('span');
+    chev.className = 'evt-chevron' + (expandedEvt === e.id ? ' open' : '');
+    chev.textContent = '►';
+    const dot = document.createElement('div');
+    dot.className = 'evt-dot';
+    dot.style.background = '#' + new THREE.Color(e.color).getHexString();
+    const info = document.createElement('div');
+    info.className = 'evt-info';
+    info.innerHTML = `<strong>${e.name}</strong> <span class="evt-day">${dayToDateStr(e.day)} · ${fmtPct(e.defaultPct)}</span>`;
+    const delBtn = document.createElement('button');
+    delBtn.className = 'del'; delBtn.textContent = '×';
+    delBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      events.splice(idx, 1);
+      renderEventList(); renderTimelineEvents(); recomputeAll();
+    });
+    head.append(chev, dot, info, delBtn);
+    head.addEventListener('click', () => {
+      expandedEvt = expandedEvt === e.id ? null : e.id;
+      renderEventList();
+    });
+
+    const body = document.createElement('div');
+    body.className = 'evt-body' + (expandedEvt === e.id ? ' open' : '');
+
+    // Event name
+    const nameRow = document.createElement('div');
+    nameRow.className = 'row';
+    nameRow.innerHTML = `<label style="font-size:10px">Name</label>`;
+    const nameInp = document.createElement('input');
+    nameInp.type = 'text'; nameInp.value = e.name; nameInp.style.width = '120px';
+    nameInp.addEventListener('change', () => { e.name = nameInp.value.trim() || 'Event'; renderEventList(); });
+    nameRow.appendChild(nameInp);
+    body.appendChild(nameRow);
+
+    // Day
+    const dayRow = document.createElement('div');
+    dayRow.className = 'row';
+    dayRow.innerHTML = `<label style="font-size:10px">Day</label>`;
+    const dayInp = document.createElement('input');
+    dayInp.type = 'number'; dayInp.value = e.day; dayInp.min = 1; dayInp.max = CFG.totalDays; dayInp.style.width = '55px';
+    const dayDate = document.createElement('span');
+    dayDate.style.cssText = 'font-size:9px;color:#556';
+    dayDate.textContent = dayToDateStr(e.day);
+    dayInp.addEventListener('change', () => {
+      e.day = Math.max(1, Math.min(CFG.totalDays, parseInt(dayInp.value) || 1));
+      events.sort((a, b) => a.day - b.day);
+      renderEventList(); renderTimelineEvents(); recomputeAll();
+    });
+    dayRow.append(dayInp, dayDate);
+    body.appendChild(dayRow);
+
+    // Default pct (signed)
+    const pctRow = document.createElement('div');
+    pctRow.className = 'row';
+    pctRow.innerHTML = `<label style="font-size:10px">Good Time effect</label>`;
+    const pctInp = document.createElement('input');
+    pctInp.type = 'number'; pctInp.value = e.defaultPct; pctInp.min = -100; pctInp.max = 100;
+    pctInp.addEventListener('change', () => {
+      e.defaultPct = Math.max(-100, Math.min(100, parseInt(pctInp.value) || 0));
+      renderEventList(); recomputeAll();
+    });
+    const pctSuf = document.createElement('span');
+    pctSuf.style.cssText = 'font-size:9px;color:#778';
+    pctSuf.textContent = '% (- reduce, + boost)';
+    pctRow.append(pctInp, pctSuf);
+    body.appendChild(pctRow);
+
+    // Per-person overrides
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'font-size:9px;color:#445;text-transform:uppercase;letter-spacing:1px;margin:6px 0 3px';
+    hdr.textContent = 'Per-person adjustments';
+    body.appendChild(hdr);
+
+    const epList = document.createElement('div');
+    epList.className = 'ep-list';
+    people.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'ep-row';
+      const nm = document.createElement('span');
+      nm.className = 'ep-name';
+      nm.textContent = p.name;
+      const isCustom = e.overrides[p.id] !== undefined;
+      const val = isCustom ? e.overrides[p.id] : e.defaultPct;
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.min = -100; inp.max = 100; inp.value = val;
+      if (isCustom) inp.classList.add('custom');
+      inp.addEventListener('change', () => {
+        const v = Math.max(-100, Math.min(100, parseInt(inp.value) || 0));
+        if (v === e.defaultPct) { delete e.overrides[p.id]; }
+        else { e.overrides[p.id] = v; }
+        renderEventList(); recomputeAll();
+      });
+      const suf = document.createElement('span');
+      suf.style.cssText = 'font-size:9px;color:#556';
+      suf.textContent = '%';
+      row.append(nm, inp, suf);
+      if (isCustom) {
+        const rst = document.createElement('button');
+        rst.textContent = '↺'; rst.title = 'Reset to default';
+        rst.addEventListener('click', () => { delete e.overrides[p.id]; renderEventList(); recomputeAll(); });
+        row.appendChild(rst);
+      }
+      epList.appendChild(row);
+    });
+    body.appendChild(epList);
+
+    item.append(head, body);
+    list.appendChild(item);
+  });
+  document.getElementById('eCount').textContent = `${events.length} event${events.length !== 1 ? 's' : ''}`;
+}
+renderEventList();
+
+document.getElementById('btnAddEvt').addEventListener('click', () => {
+  addEvent(Math.max(1, Math.floor(currentDay)), null, -25);
+  expandedEvt = events[events.length - 1].id;
+  renderEventList(); renderTimelineEvents(); recomputeAll();
+});
+
+// ═══════════════════════════════════════════════════════════
+//  RECOMPUTE
+// ═══════════════════════════════════════════════════════════
+function recomputeAll() {
+  compute();
+  renderTimelineEvents();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  KEYBOARD
+// ═══════════════════════════════════════════════════════════
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true') return;
+  if (e.code === 'Space') { e.preventDefault(); if (currentDay >= CFG.totalDays) currentDay = 0; playing = !playing; updPlayBtn(); }
+  if (e.code === 'ArrowRight') currentDay = Math.min(currentDay + 1, CFG.totalDays);
+  if (e.code === 'ArrowLeft') currentDay = Math.max(currentDay - 1, 0);
+  if (e.code === 'ArrowUp') currentDay = Math.min(currentDay + 30, CFG.totalDays);
+  if (e.code === 'ArrowDown') currentDay = Math.max(currentDay - 30, 0);
+  if (e.code === 'Home') currentDay = 0;
+  if (e.code === 'End') currentDay = CFG.totalDays;
+});
+
+// ═══════════════════════════════════════════════════════════
+//  RESIZE
+// ═══════════════════════════════════════════════════════════
+window.addEventListener('resize', () => {
+  camera.aspect = vp.clientWidth / vp.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(vp.clientWidth, vp.clientHeight);
+});
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+compute();
+renderTimelineEvents();
+animate();
+</script>
+</body>
+</html>
