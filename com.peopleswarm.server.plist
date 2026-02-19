@@ -10,6 +10,8 @@
         <string>/usr/bin/python3</string>
         <string>-m</string>
         <string>http.server</string>
+        <string>--bind</string>
+        <string>0.0.0.0</string>
         <string>8420</string>
     </array>
 
