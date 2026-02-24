@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>People Swarm — 3D Attribute Explorer</title>
+<title>3D Stupid — 3D Attribute Explorer</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #08080e; color: #ddd; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; display: flex; height: 100vh; }
@@ -122,7 +122,7 @@
 <body>
 
 <div id="controls">
-  <h1>People Swarm</h1>
+  <h1>3D Stupid</h1>
   <div class="sub">Intelligence × Evil × Having a Good Time</div>
 
   <!-- CONFIGURATIONS -->
@@ -752,7 +752,7 @@ document.getElementById('btnRegen').addEventListener('click', () => recomputeAll
 document.getElementById('btnShot').addEventListener('click', () => {
   renderer.render(scene, camera);
   const a = document.createElement('a');
-  a.download = `people-swarm-day${Math.floor(currentDay)}.png`;
+  a.download = `3d-stupid-day${Math.floor(currentDay)}.png`;
   a.href = renderer.domElement.toDataURL('image/png');
   a.click();
 });
@@ -1003,7 +1003,7 @@ window.addEventListener('resize', () => {
 // ═══════════════════════════════════════════════════════════
 //  CONFIGURATIONS — save/load via localStorage
 // ═══════════════════════════════════════════════════════════
-const CFG_STORAGE_KEY = 'peopleswarm_configs';
+const CFG_STORAGE_KEY = '3dstupid_configs';
 
 function getSavedConfigs() {
   try { return JSON.parse(localStorage.getItem(CFG_STORAGE_KEY)) || {}; }

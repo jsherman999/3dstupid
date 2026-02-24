@@ -1,16 +1,16 @@
 #!/bin/bash
-# Setup script for People Swarm launchd service
+# Setup script for 3D Stupid launchd service
 # Serves particle-swarm.html via Python http.server on port 8420
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLIST_NAME="com.peopleswarm.server.plist"
+PLIST_NAME="com.3dstupid.server.plist"
 PLIST_SRC="$SCRIPT_DIR/$PLIST_NAME"
 PLIST_DST="$HOME/Library/LaunchAgents/$PLIST_NAME"
 PORT=8420
 
-echo "=== People Swarm — launchd Setup ==="
+echo "=== 3D Stupid — launchd Setup ==="
 echo ""
 echo "Project directory: $SCRIPT_DIR"
 echo "Port:             $PORT"
@@ -18,7 +18,7 @@ echo "URL:              http://localhost:$PORT/particle-swarm.html"
 echo ""
 
 # Unload existing service if present
-if launchctl list 2>/dev/null | grep -q "com.peopleswarm.server"; then
+if launchctl list 2>/dev/null | grep -q "com.3dstupid.server"; then
     echo "Stopping existing service..."
     launchctl unload "$PLIST_DST" 2>/dev/null || true
 fi
@@ -47,4 +47,4 @@ echo ""
 echo "To open in browser:  open http://localhost:$PORT/particle-swarm.html"
 echo "To stop:             launchctl unload ~/Library/LaunchAgents/$PLIST_NAME"
 echo "To restart:          launchctl unload ~/Library/LaunchAgents/$PLIST_NAME && launchctl load ~/Library/LaunchAgents/$PLIST_NAME"
-echo "Logs:                /tmp/peopleswarm.log and /tmp/peopleswarm.err"
+echo "Logs:                /tmp/3dstupid.log and /tmp/3dstupid.err"

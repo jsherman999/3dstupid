@@ -1,4 +1,4 @@
-# People Swarm — 3D Attribute Explorer
+# 3D Stupid — 3D Attribute Explorer
 
 An interactive 3D visualization that plots people as labeled spheres across three axes — **Intelligence**, **Evil**, and **Having a Good Time** — and lets you scrub through a day-by-day timeline to watch how events affect the population over a year.
 
@@ -82,17 +82,17 @@ Events store a signed percentage (`-100` to `+100`). On the event's day, each pe
 
 ## launchd Setup
 
-A `com.peopleswarm.server.plist` file is included for macOS. It runs a Python HTTP server on port 8420, serving the project directory. To install:
+A `com.3dstupid.server.plist` file is included for macOS. It runs a Python HTTP server on port 8420, serving the project directory. To install:
 
 ```bash
 # Copy the plist to your LaunchAgents
-cp com.peopleswarm.server.plist ~/Library/LaunchAgents/
+cp com.3dstupid.server.plist ~/Library/LaunchAgents/
 
 # Edit the plist to update the WorkingDirectory path if needed
 # (it should point to wherever you cloned this repo)
 
 # Load and start
-launchctl load ~/Library/LaunchAgents/com.peopleswarm.server.plist
+launchctl load ~/Library/LaunchAgents/com.3dstupid.server.plist
 
 # Visit in browser
 open http://localhost:8420/particle-swarm.html
@@ -100,12 +100,12 @@ open http://localhost:8420/particle-swarm.html
 
 To stop:
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.peopleswarm.server.plist
+launchctl unload ~/Library/LaunchAgents/com.3dstupid.server.plist
 ```
 
 To check status:
 ```bash
-launchctl list | grep peopleswarm
+launchctl list | grep 3dstupid
 ```
 
 ## Future Ideas
